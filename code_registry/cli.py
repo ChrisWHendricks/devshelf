@@ -7,7 +7,7 @@ import uvicorn
 from .config import Config
 from .main import create_app
 
-app = typer.Typer(help="Code Registry - visualize local git repos and browse Markdown files")
+app = typer.Typer(help="DevShelf - visualize local git repos and browse Markdown files")
 
 
 @app.command()
@@ -18,7 +18,7 @@ def serve(
     port: Optional[int] = typer.Option(None, "--port", "-p", help="Port to bind to"),
     config_file: Path = typer.Option("config.yaml", "--config", "-c", help="Path to config file"),
 ):
-    """Start the Code Registry web server."""
+    """Start the DevShelf web server."""
     cfg = Config.from_yaml(config_file)
     cfg.override(src_dir, md_dirs, host, port)
 

@@ -1,4 +1,4 @@
-# code-registry configuration
+# DevShelf configuration
 
 # Parent directory to scan for git repositories
 src_dir: ~/src

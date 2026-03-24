@@ -14,7 +14,7 @@ def _validate_repo_name(repo_name: str) -> None:
 
 
 def create_app(config: Config) -> FastAPI:
-    app = FastAPI(title="Code Registry")
+    app = FastAPI(title="DevShelf")
 
     static_dir = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
