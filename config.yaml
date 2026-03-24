@@ -1,0 +1,12 @@
+# code-registry configuration
+
+# Parent directory to scan for git repositories
+src_dir: ~/src
+
+# Directories containing Markdown files to browse
+md_dirs:
+  - ~/docs
+
+# Server settings
+host: 127.0.0.1
+port: 8400

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" x-data="app" :class="{ dark: darkMode }">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Registry</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+    <div class="layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">Code Registry</h1>
+                <button class="icon-btn" @click="darkMode = !darkMode" :title="darkMode ? 'Light mode' : 'Dark mode'">
+                    <span x-show="darkMode">&#9788;</span>
+                    <span x-show="!darkMode">&#9790;</span>
+                </button>
+            </div>
+
+            <div class="sidebar-tabs">
+                <button class="tab" :class="{ active: view === 'repos' }" @click="view = 'repos'">Repos</button>
+                <button class="tab" :class="{ active: view === 'docs' }" @click="switchToDocs()">Docs</button>
+            </div>
+
+            <!-- Repos view -->
+            <template x-if="view === 'repos'">
+                <div class="sidebar-content">
+                    <div class="filter-box">
+                        <input type="text" class="filter-input" placeholder="Filter repos..." x-model="repoFilter">
+                    </div>
+                    <div class="refresh-bar">
+                        <span class="muted" x-text="filteredRepos.length + ' repos'"></span>
+                        <button class="link-btn" @click="loadRepos()">Refresh</button>
+                    </div>
+                    <ul class="repo-list">
+                        <template x-for="repo in filteredRepos" :key="repo">
+                            <li class="repo-item" :class="{ active: selectedRepo === repo }" @click="selectRepo(repo)">
+                                <span class="repo-name" x-text="repo"></span>
+                            </li>
+                        </template>
+                    </ul>
+                    <div x-show="filteredRepos.length === 0 && !loading" class="empty-state">
+                        No repos found.
+                    </div>
+                </div>
+            </template>
+
+            <!-- Docs view -->
+            <template x-if="view === 'docs'">
+                <div class="sidebar-content">
+                    <div class="refresh-bar">
+                        <button class="link-btn" @click="loadDocTree()">Refresh</button>
+                    </div>
+                    <div class="doc-tree">
+                        <template x-for="node in visibleDocNodes" :key="node.path">
+                            <div>
+                                <template x-if="node.type === 'directory'">
+                                    <div class="tree-dir" :style="'padding-left:' + (node.depth * 16 + 8) + 'px'" @click="toggleDir(node.path)">
+                                        <span class="tree-arrow" :class="{ open: expandedDirs[node.path] }">&#9656;</span>
+                                        <span class="tree-label" x-text="node.name"></span>
+                                    </div>
+                                </template>
+                                <template x-if="node.type === 'file'">
+                                    <div class="tree-file" :class="{ active: selectedDoc === node.path }" :style="'padding-left:' + (node.depth * 16 + 8) + 'px'" @click="selectDoc(node.path)">
+                                        <span class="tree-icon">&#9643;</span>
+                                        <span class="tree-label" x-text="node.name"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                    <div x-show="docTrees.length === 0 && !loading" class="empty-state">
+                        No markdown directories configured.
+                    </div>
+                </div>
+            </template>
+        </aside>
+
+        <!-- Main content -->
+        <main class="content">
+            <div x-show="loading" class="loading-spinner">
+                <div class="spinner"></div>
+            </div>
+
+            <!-- Repo detail -->
+            <template x-if="view === 'repos' && repoDetail && !loading">
+                <div class="repo-detail">
+                    <div class="repo-header">
+                        <h2 class="repo-title" x-text="repoDetail.name"></h2>
+                        <div class="repo-meta">
+                            <span class="badge branch" x-text="repoDetail.current_branch"></span>
+                            <a class="repo-url" :href="repoDetail.remote_url.replace('git@github.com:', 'https://github.com/').replace('.git', '')"
+                               x-text="repoDetail.remote_url" target="_blank" rel="noopener"
+                               x-show="repoDetail.remote_url"></a>
+                        </div>
+                    </div>
+
+                    <div class="detail-panels">
+                        <!-- Branches -->
+                        <details class="panel" open>
+                            <summary class="panel-title">Branches</summary>
+                            <ul class="branch-list">
+                                <template x-for="b in repoDetail.branches" :key="b.name">
+                                    <li class="branch-item">
+                                        <span x-show="b.is_current" class="current-marker">*</span>
+                                        <span x-text="b.name"></span>
+                                        <span x-show="b.is_remote" class="badge remote">remote</span>
+                                    </li>
+                                </template>
+                            </ul>
+                        </details>
+
+                        <!-- Commits -->
+                        <details class="panel" open>
+                            <summary class="panel-title">Recent Commits (<span x-text="repoDetail.default_branch"></span>)</summary>
+                            <ul class="commit-list">
+                                <template x-for="c in repoDetail.last_commits" :key="c.sha">
+                                    <li class="commit-item">
+                                        <code class="commit-sha" x-text="c.sha"></code>
+                                        <span class="commit-msg" x-text="c.message"></span>
+                                        <span class="commit-meta" x-text="c.author + ' - ' + c.date"></span>
+                                    </li>
+                                </template>
+                            </ul>
+                            <div x-show="repoDetail.last_commits.length === 0" class="empty-state">No commits found.</div>
+                        </details>
+
+                        <!-- Pull Requests -->
+                        <details class="panel">
+                            <summary class="panel-title" @click="loadPRs(repoDetail.name)">
+                                Pull Requests
+                                <span x-show="prs !== null" class="badge" x-text="prs ? prs.length : ''"></span>
+                            </summary>
+                            <div x-show="prsLoading" class="loading-spinner small">
+                                <div class="spinner"></div>
+                            </div>
+                            <ul x-show="prs && !prsLoading" class="pr-list">
+                                <template x-for="pr in prs" :key="pr.number">
+                                    <li class="pr-item">
+                                        <a :href="pr.url" target="_blank" rel="noopener">
+                                            <span class="pr-number" x-text="'#' + pr.number"></span>
+                                            <span class="pr-title" x-text="pr.title"></span>
+                                        </a>
+                                        <span class="pr-meta" x-text="pr.author + ' - ' + pr.created_at"></span>
+                                    </li>
+                                </template>
+                            </ul>
+                            <div x-show="prs && prs.length === 0 && !prsLoading" class="empty-state">No open pull requests.</div>
+                        </details>
+
+                        <!-- README -->
+                        <details class="panel" open>
+                            <summary class="panel-title">
+                                <span x-text="repoDetail.readme_file || 'README'"></span>
+                            </summary>
+                            <div x-show="repoDetail.readme_html" class="markdown-body" x-html="repoDetail.readme_html"></div>
+                            <div x-show="!repoDetail.readme_html" class="empty-state">No README found.</div>
+                        </details>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Docs detail -->
+            <template x-if="view === 'docs' && docHtml && !loading">
+                <div class="doc-detail">
+                    <div class="doc-header">
+                        <h2 class="doc-title" x-text="docName"></h2>
+                        <span class="muted" x-text="docPath"></span>
+                    </div>
+                    <div class="markdown-body" x-html="docHtml"></div>
+                </div>
+            </template>
+
+            <!-- Welcome state -->
+            <div x-show="!loading && !repoDetail && view === 'repos'" class="welcome">
+                <h2>Select a repository</h2>
+                <p class="muted">Choose a repo from the sidebar to view its details.</p>
+            </div>
+            <div x-show="!loading && !docHtml && view === 'docs'" class="welcome">
+                <h2>Select a document</h2>
+                <p class="muted">Choose a Markdown file from the sidebar to view it.</p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

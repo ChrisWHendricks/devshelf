@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "code-registry"
+version = "0.1.0"
+description = "A local web app to visualize git repositories and browse Markdown files"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pyyaml>=6.0",
+    "typer>=0.12.0",
+    "markdown>=3.6",
+    "pygments>=2.18.0",
+]
+
+[project.scripts]
+code-registry = "code_registry.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["code_registry"]
