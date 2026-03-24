@@ -11,7 +11,7 @@
 <body>
     <div class="layout">
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar" :class="{ open: sidebarOpen }">
             <div class="sidebar-header">
                 <h1 class="logo">Code Registry</h1>
                 <button class="icon-btn" @click="darkMode = !darkMode" :title="darkMode ? 'Light mode' : 'Dark mode'">
@@ -35,13 +35,26 @@
                         <span class="muted" x-text="filteredRepos.length + ' repos'"></span>
                         <button class="link-btn" @click="loadRepos()">Refresh</button>
                     </div>
-                    <ul class="repo-list">
-                        <template x-for="repo in filteredRepos" :key="repo">
-                            <li class="repo-item" :class="{ active: selectedRepo === repo }" @click="selectRepo(repo)">
-                                <span class="repo-name" x-text="repo"></span>
-                            </li>
+                    <div class="repo-tree">
+                        <template x-for="node in visibleRepoNodes" :key="node.key">
+                            <div>
+                                <template x-if="node.type === 'group'">
+                                    <div class="tree-dir" @click="toggleGroup(node.name)">
+                                        <span class="sidebar-icon folder-icon">&#128193;</span>
+                                        <span class="tree-label" x-text="node.name"></span>
+                                    </div>
+                                </template>
+                                <template x-if="node.type === 'repo'">
+                                    <div class="repo-item" :class="{ active: selectedRepo === node.key }"
+                                         :style="node.group ? 'padding-left: 32px' : ''"
+                                         @click="selectRepo(node.key)">
+                                        <img class="sidebar-icon repo-icon" src="/static/img/github.svg" alt="repo" width="14" height="14">
+                                        <span class="repo-name" x-text="node.name"></span>
+                                    </div>
+                                </template>
+                            </div>
                         </template>
-                    </ul>
+                    </div>
                     <div x-show="filteredRepos.length === 0 && !loading" class="empty-state">
                         No repos found.
                     </div>
@@ -81,6 +94,9 @@
 
         <!-- Main content -->
         <main class="content">
+            <button class="sidebar-toggle icon-btn" @click="sidebarOpen = !sidebarOpen" x-show="!sidebarOpen">
+                &#9776;
+            </button>
             <div x-show="loading" class="loading-spinner">
                 <div class="spinner"></div>
             </div>
@@ -98,10 +114,10 @@
                         </div>
                     </div>
 
-                    <div class="detail-panels">
+                    <div class="detail-grid">
                         <!-- Branches -->
-                        <details class="panel" open>
-                            <summary class="panel-title">Branches</summary>
+                        <div class="panel">
+                            <div class="panel-title">Branches</div>
                             <ul class="branch-list">
                                 <template x-for="b in repoDetail.branches" :key="b.name">
                                     <li class="branch-item">
@@ -111,11 +127,11 @@
                                     </li>
                                 </template>
                             </ul>
-                        </details>
+                        </div>
 
                         <!-- Commits -->
-                        <details class="panel" open>
-                            <summary class="panel-title">Recent Commits (<span x-text="repoDetail.default_branch"></span>)</summary>
+                        <div class="panel">
+                            <div class="panel-title">Recent Commits (<span x-text="repoDetail.default_branch"></span>)</div>
                             <ul class="commit-list">
                                 <template x-for="c in repoDetail.last_commits" :key="c.sha">
                                     <li class="commit-item">
@@ -126,14 +142,14 @@
                                 </template>
                             </ul>
                             <div x-show="repoDetail.last_commits.length === 0" class="empty-state">No commits found.</div>
-                        </details>
+                        </div>
 
                         <!-- Pull Requests -->
-                        <details class="panel">
-                            <summary class="panel-title" @click="loadPRs(repoDetail.name)">
+                        <div class="panel" x-init="loadPRs(repoDetail.name)">
+                            <div class="panel-title">
                                 Pull Requests
                                 <span x-show="prs !== null" class="badge" x-text="prs ? prs.length : ''"></span>
-                            </summary>
+                            </div>
                             <div x-show="prsLoading" class="loading-spinner small">
                                 <div class="spinner"></div>
                             </div>
@@ -148,17 +164,17 @@
                                     </li>
                                 </template>
                             </ul>
-                            <div x-show="prs && prs.length === 0 && !prsLoading" class="empty-state">No open pull requests.</div>
-                        </details>
+                            <div x-show="prs && prs.length === 0 && !prsLoading" class="empty-state">No open PRs.</div>
+                        </div>
+                    </div>
 
-                        <!-- README -->
-                        <details class="panel" open>
-                            <summary class="panel-title">
-                                <span x-text="repoDetail.readme_file || 'README'"></span>
-                            </summary>
-                            <div x-show="repoDetail.readme_html" class="markdown-body" x-html="repoDetail.readme_html"></div>
-                            <div x-show="!repoDetail.readme_html" class="empty-state">No README found.</div>
-                        </details>
+                    <!-- README (full width below the grid) -->
+                    <div class="panel readme-panel">
+                        <div class="panel-title">
+                            <span x-text="repoDetail.readme_file || 'README'"></span>
+                        </div>
+                        <div x-show="repoDetail.readme_html" class="markdown-body" x-html="repoDetail.readme_html"></div>
+                        <div x-show="!repoDetail.readme_html" class="empty-state">No README found.</div>
                     </div>
                 </div>
             </template>

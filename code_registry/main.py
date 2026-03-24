@@ -9,7 +9,7 @@ from . import git_service, github_service, markdown_service
 
 
 def _validate_repo_name(repo_name: str) -> None:
-    if not repo_name or "/" in repo_name or "\\" in repo_name or repo_name.startswith("."):
+    if not repo_name or "\\" in repo_name or ".." in repo_name or repo_name.startswith("/"):
         raise HTTPException(status_code=400, detail="Invalid repository name")
 
 
@@ -28,9 +28,14 @@ def create_app(config: Config) -> FastAPI:
         repos = git_service.discover_repos(config.src_dir)
         return {"repos": repos, "src_dir": str(config.src_dir)}
 
-    @app.get("/api/repos/{repo_name}")
+    @app.get("/api/repos/{repo_name:path}")
     async def get_repo(repo_name: str):
         _validate_repo_name(repo_name)
+
+        # Strip /prs suffix and redirect to PR handler
+        if repo_name.endswith("/prs"):
+            return await get_repo_prs(repo_name[:-4])
+
         repos = git_service.discover_repos(config.src_dir)
         if repo_name not in repos:
             raise HTTPException(status_code=404, detail="Repository not found")
@@ -53,7 +58,6 @@ def create_app(config: Config) -> FastAPI:
             "readme_html": readme_html,
         }
 
-    @app.get("/api/repos/{repo_name}/prs")
     async def get_repo_prs(repo_name: str):
         _validate_repo_name(repo_name)
         repos = git_service.discover_repos(config.src_dir)

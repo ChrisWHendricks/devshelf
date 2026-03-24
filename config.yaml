@@ -5,8 +5,9 @@ src_dir: ~/src
 
 # Directories containing Markdown files to browse
 md_dirs:
-  - ~/docs
+  - ~/src/_scratch-pad
+  - ~/Documents
 
 # Server settings
 host: 127.0.0.1
-port: 8400
+port: 8402

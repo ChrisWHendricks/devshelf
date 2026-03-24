@@ -7,7 +7,7 @@ import yaml
 @dataclass
 class Config:
     src_dir: Path = Path.home() / "src"
-    md_dirs: list[Path] = field(default_factory=lambda: [Path.home() / "docs"])
+    md_dirs: list[Path] = field(default_factory=lambda: [Path.home() / "_scratch-pad", Path.home() / "Documents"])
     host: str = "127.0.0.1"
     port: int = 8400
 
@@ -18,7 +18,7 @@ class Config:
         raw = yaml.safe_load(path.read_text()) or {}
         return cls(
             src_dir=Path(raw.get("src_dir", "~/src")).expanduser(),
-            md_dirs=[Path(d).expanduser() for d in raw.get("md_dirs", ["~/docs"])],
+            md_dirs=[Path(d).expanduser() for d in raw.get("md_dirs", ["~/_scratch-pad", "~/Documents"])],
             host=raw.get("host", "127.0.0.1"),
             port=raw.get("port", 8400),
         )

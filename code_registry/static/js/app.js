@@ -1,6 +1,7 @@
 document.addEventListener('alpine:init', () => {
     Alpine.data('app', () => ({
         darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
+        sidebarOpen: window.innerWidth >= 768,
         view: 'repos',
         loading: false,
 
@@ -9,6 +10,7 @@ document.addEventListener('alpine:init', () => {
         repoFilter: '',
         selectedRepo: null,
         repoDetail: null,
+        expandedGroups: {},
 
         // PRs (loaded lazily)
         prs: null,
@@ -32,6 +34,51 @@ document.addEventListener('alpine:init', () => {
             const q = this.repoFilter.toLowerCase().trim();
             if (!q) return this.repos;
             return this.repos.filter(r => r.toLowerCase().includes(q));
+        },
+
+        get repoTree() {
+            const repos = this.filteredRepos;
+            const grouped = [];
+            const ungrouped = [];
+
+            for (const repo of repos) {
+                const slashIdx = repo.lastIndexOf('/');
+                if (slashIdx === -1) {
+                    ungrouped.push(repo);
+                } else {
+                    grouped.push(repo);
+                }
+            }
+
+            const nodes = [];
+            let lastGroup = null;
+            for (const repo of grouped) {
+                const slashIdx = repo.lastIndexOf('/');
+                const group = repo.substring(0, slashIdx);
+                const name = repo.substring(slashIdx + 1);
+                if (group !== lastGroup) {
+                    nodes.push({ type: 'group', name: group, key: 'g:' + group });
+                    lastGroup = group;
+                }
+                nodes.push({ type: 'repo', name: name, key: repo, group: group });
+            }
+            for (const repo of ungrouped) {
+                nodes.push({ type: 'repo', name: repo, key: repo, group: null });
+            }
+            return nodes;
+        },
+
+        get visibleRepoNodes() {
+            const filtering = this.repoFilter.trim().length > 0;
+            return this.repoTree.filter(node => {
+                if (node.type === 'group') return true;
+                if (!node.group) return true;
+                return filtering || !!this.expandedGroups[node.group];
+            });
+        },
+
+        toggleGroup(group) {
+            this.expandedGroups[group] = !this.expandedGroups[group];
         },
 
         get visibleDocNodes() {
@@ -64,13 +111,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         async selectRepo(name) {
+            if (window.innerWidth < 768) this.sidebarOpen = false;
             this.selectedRepo = name;
             this.repoDetail = null;
             this.prs = null;
             this.prsLoadedFor = null;
             this.loading = true;
             try {
-                const res = await fetch(`/api/repos/${encodeURIComponent(name)}`);
+                const encodedPath = name.split('/').map(encodeURIComponent).join('/');
+                const res = await fetch(`/api/repos/${encodedPath}`);
                 this.repoDetail = await res.json();
             } catch (e) {
                 console.error('Failed to load repo:', e);
@@ -83,7 +132,8 @@ document.addEventListener('alpine:init', () => {
             this.prsLoading = true;
             this.prs = null;
             try {
-                const res = await fetch(`/api/repos/${encodeURIComponent(repoName)}/prs`);
+                const encodedPath = repoName.split('/').map(encodeURIComponent).join('/');
+                const res = await fetch(`/api/repos/${encodedPath}/prs`);
                 const data = await res.json();
                 this.prs = data.pull_requests;
                 this.prsLoadedFor = repoName;
@@ -134,6 +184,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         async selectDoc(path) {
+            if (window.innerWidth < 768) this.sidebarOpen = false;
             this.selectedDoc = path;
             this.loading = true;
             this.docHtml = null;

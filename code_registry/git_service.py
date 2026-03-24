@@ -34,14 +34,23 @@ def discover_repos(src_dir: Path) -> list[str]:
     if not src_dir.is_dir():
         return []
     repos = []
-    for entry in sorted(src_dir.iterdir()):
-        if entry.is_dir() and (entry / ".git").is_dir():
-            repos.append(entry.name)
-    return repos
+    _scan_for_repos(src_dir, src_dir, repos)
+    return sorted(repos)
 
 
-def get_repo_info(src_dir: Path, repo_name: str) -> RepoInfo:
-    repo_path = src_dir / repo_name
+def _scan_for_repos(dir_path: Path, root: Path, repos: list[str]) -> None:
+    for entry in sorted(dir_path.iterdir()):
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+        if (entry / ".git").is_dir():
+            repos.append(str(entry.relative_to(root)))
+        else:
+            _scan_for_repos(entry, root, repos)
+
+
+def get_repo_info(src_dir: Path, repo_rel_path: str) -> RepoInfo:
+    repo_name = repo_rel_path.split("/")[-1]
+    repo_path = src_dir / repo_rel_path
 
     current_branch = _run_git(repo_path, "rev-parse", "--abbrev-ref", "HEAD")
 
